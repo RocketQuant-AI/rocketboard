@@ -8,15 +8,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 
-from shared.lookup.credentials import API_KEY
+from utils.lookup.credentials import API_KEY
 
 # Example ticker lists (you can modify these as needed)
-latest_sp500 = pd.read_csv('./stock_assets/latest_sp500.csv')['Symbol'].unique().tolist() if os.path.exists('./stock_assets/latest_sp500.csv') else []
-nasdaq_tickers = pd.read_csv('./stock_assets/nasdaqlisted.csv')['Symbol'].unique().tolist() if os.path.exists('./stock_assets/nasdaqlisted.csv') else []
+latest_sp500 = pd.read_csv('../data/stock_assets/latest_sp500.csv')['Symbol'].unique().tolist() if os.path.exists('./stock_assets/latest_sp500.csv') else []
+nasdaq_tickers = pd.read_csv('../data/stock_assets/nasdaqlisted.csv')['Symbol'].unique().tolist() if os.path.exists('./stock_assets/nasdaqlisted.csv') else []
 
 nyse_tickers = []
-if os.path.exists('./stock_assets/nyse_tickers.txt'):
-    with open('./stock_assets/nyse_tickers.txt', 'r') as f:
+if os.path.exists('../data/stock_assets/nyse_tickers.txt'):
+    with open('../data/stock_assets/nyse_tickers.txt', 'r') as f:
         for line in f:
             nyse_tickers.append(line.strip())
 
@@ -32,11 +32,11 @@ all_tickers = [ticker for ticker in all_tickers if not pd.isna(ticker)]
 # Convert special characters to - in ticker symbols (e.g., MS^Q becomes MS-Q, BRK.B becomes BRK-B)
 all_tickers = [ticker.replace('^', '-').replace('.', '-') for ticker in all_tickers]
 print(f"Total tickers to process: {len(all_tickers)}")
-os.makedirs('./history_price/', exist_ok=True)
+os.makedirs('../data/price/daily_stock_price/', exist_ok=True)
 
 # Check which tickers we already have data for
-already_tickers = os.listdir('./history_price/')
-already_tickers = [ticker.replace('.csv', '') for ticker in already_tickers]
+already_tickers = os.listdir('../data/price/daily_stock_price/')
+already_tickers = [ticker.replace('.parquet', '') for ticker in already_tickers]
 
 print(all_tickers)
 # Filter out tickers we already have
@@ -93,9 +93,9 @@ async def fetch_history_price(
         print(f"Exception for {ticker}: {e}")
         return ticker, None
 
-def save_history_data_thread(data: List[Dict], ticker: str, folder: str = "history_price") -> None:
+def save_to_parquet(data: List[Dict], ticker: str, folder: str = "../data/price/daily_stock_price") -> None:
     """
-    Save the historical price data to a CSV file (runs in thread pool).
+    Save the historical price data to a Parquet file (runs in thread pool).
     
     Args:
         data: List of dictionaries containing historical price data
@@ -113,9 +113,9 @@ def save_history_data_thread(data: List[Dict], ticker: str, folder: str = "histo
         # Create directory if it doesn't exist
         os.makedirs(folder, exist_ok=True)
         
-        # Save to CSV
-        output_file = f"{folder}/{ticker.lower()}.csv"
-        df.to_csv(output_file, index=False)
+        # Save to Parquet
+        output_file = f"{folder}/{ticker.lower()}.parquet"
+        df.to_parquet(output_file, index=False, engine='pyarrow')
         print(f"Data saved to {output_file} ({len(df)} records)")
         
     except Exception as e:
@@ -155,9 +155,9 @@ async def main():
             completed += 1
             
             if data:
-                # Run CSV saving in thread pool to avoid blocking the event loop
+                # Run Parquet saving in thread pool to avoid blocking the event loop
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(executor, save_history_data_thread, data, ticker)
+                await loop.run_in_executor(executor, save_to_parquet, data, ticker)
                 print(f"✓ Progress: {completed}/{total} - {ticker} completed")
             else:
                 print(f"✗ Progress: {completed}/{total} - {ticker} failed")

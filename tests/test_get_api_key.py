@@ -1,5 +1,5 @@
 import pytest
-from shared.lookup.credentials import get_api_key
+from utils.lookup.credentials import get_api_key
 
 
 def test_get_api_key():

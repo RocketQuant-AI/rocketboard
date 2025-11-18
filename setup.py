@@ -10,8 +10,8 @@ setup(
     name="rocketquant-ai",
     version="0.1.0",
     description="RocketQuant AI - Financial Data Platform for Quantitative Investing",
-    python_requires=">=3.9",
-    packages=find_packages(include=["shared*", "price*", "earnings*"]),
+    python_requires=">=3.10",
+    packages=find_packages(include=["utils*", "price*", "earnings*"]),
     install_requires=[
         "aiohttp>=3.8.0",
         "duckdb>=0.8.0",

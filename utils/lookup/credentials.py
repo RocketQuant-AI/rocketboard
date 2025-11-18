@@ -20,5 +20,9 @@ def get_api_key() -> str:
     
     raise FileNotFoundError(
         "API key not found. Set SEC_API_KEY environment variable "
-        "or create shared/lookup/credentials.txt"
+        "or create utils/lookup/credentials.txt"
     )
+
+
+# Module-level constant for backward compatibility
+API_KEY = get_api_key()
