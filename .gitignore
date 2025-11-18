@@ -1,0 +1,29 @@
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+
+# virtual environment, mac osx specific
+.venv/
+.env/
+**/.DS_Store
+*.egg-info/
+
+# credentials       
+shared/credentials.txt
+
+# data
+data/
+fundamentals/
+nasdaq_fundamentals/
+sec-edgar-filings/
+db/**/*.parquet
+
+# csv_out
+csv_out/
+
+# excel_out
+excel_out/
