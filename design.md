@@ -223,3 +223,6 @@ ORDER BY m.revenue DESC;
 	•	本地量化研究首选 DuckDB + 分区化 Parquet；
 	•	以 dim_entity / dim_filing / dim_concept / dim_unit / fact_numeric 为核心抽象，万物皆 fact；
 	•	通过 mart 视图 提供宽表入口（对回测/特征最友好）；
+
+
+

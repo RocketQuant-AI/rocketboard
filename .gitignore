@@ -19,7 +19,7 @@ logs/
 old/
 
 # credentials       
-shared/credentials.txt
+utils/lookup/credentials.txt
 
 # data
 data/
@@ -33,3 +33,6 @@ csv_out/
 
 # excel_out
 excel_out/
+
+# outputs (cached query results)
+outputs/
