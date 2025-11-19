@@ -43,13 +43,42 @@ print(f"Total tickers to process: {len(all_tickers)}")
 os.makedirs('../data/price/daily_stock_price/', exist_ok=True)
 
 # Check which tickers we already have data for
-already_tickers = os.listdir('../data/price/daily_stock_price/')
-already_tickers = [ticker.replace('.parquet', '') for ticker in already_tickers]
+# For daily updates, we'll re-fetch tickers that haven't been updated today
+from datetime import date
 
-print(all_tickers)
-# Filter out tickers we already have
-all_tickers = [ticker for ticker in all_tickers if str(ticker).lower() not in [str(t).lower() for t in already_tickers]]
-print(f"Tickers to fetch (excluding already downloaded): {len(all_tickers)}")
+data_dir = '../data/price/daily_stock_price/'
+already_tickers = []
+tickers_to_update = []
+
+if os.path.exists(data_dir):
+    for file in os.listdir(data_dir):
+        if file.endswith('.parquet'):
+            ticker = file.replace('.parquet', '')
+            file_path = os.path.join(data_dir, file)
+            
+            # Check if file was modified today
+            file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path)).date()
+            today = date.today()
+            
+            if file_mtime >= today:
+                # File was updated today, skip it
+                already_tickers.append(ticker)
+            else:
+                # File is old, mark for update
+                tickers_to_update.append(ticker)
+
+print(f"Total tickers in list: {len(all_tickers)}")
+print(f"Already updated today: {len(already_tickers)}")
+print(f"Need update: {len(tickers_to_update)}")
+
+# Filter: only fetch tickers that are either new OR need update
+all_tickers_lower = [str(t).lower() for t in all_tickers]
+already_tickers_lower = [str(t).lower() for t in already_tickers]
+
+# Keep tickers that are either: not in already_tickers (new) OR in tickers_to_update (old)
+all_tickers = [ticker for ticker in all_tickers if str(ticker).lower() not in already_tickers_lower]
+
+print(f"Tickers to fetch: {len(all_tickers)}")
 
 TIINGO_DAILY_URL = "https://api.tiingo.com/tiingo/daily/{ticker}/prices"
 

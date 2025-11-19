@@ -274,6 +274,125 @@ def price_change_filter(
         con.close()
 
 
+def volume_change_filter(
+    date_x: str,
+    date_y: str,
+    date_z: str,
+    date_w: str,
+    volume_ratio: float,
+    db_path: str = None,
+    export_to_csv: bool = False,
+    use_cache: bool = True
+) -> pd.DataFrame:
+    """
+    Find all stocks where average volume from date_x to date_y is 
+    volume_ratio times (or more) of the average volume from date_z to date_w.
+    
+    This helps identify stocks with increasing trading activity.
+    
+    Args:
+        date_x: Recent period start date (e.g., '2025-11-10')
+        date_y: Recent period end date (e.g., '2025-11-17')
+        date_z: Comparison period start date (e.g., '2025-10-10')
+        date_w: Comparison period end date (e.g., '2025-10-17')
+        volume_ratio: Minimum volume ratio (e.g., 2.0 means recent volume is 2x the comparison period)
+        db_path: Path to DuckDB database (default: ../data/price/price.duckdb)
+        export_to_csv: If True, save results to outputs/ directory
+        use_cache: If True, load from cache if available (default: True)
+    
+    Returns:
+        pandas.DataFrame with columns: ticker, avg_volume_xy, avg_volume_zw, actual_ratio, 
+                                       days_xy, days_zw
+    
+    Example:
+        # Find stocks where Nov 10-17 volume is 2x or more than Oct 10-17
+        df = volume_change_filter("2025-11-10", "2025-11-17", "2025-10-10", "2025-10-17", 2.0)
+        
+        # With export and cache
+        df = volume_change_filter("2025-11-10", "2025-11-17", "2025-10-10", "2025-10-17", 
+                                 1.5, export_to_csv=True, use_cache=True)
+    """
+    # Generate cache filename
+    cache_filename = _generate_cache_filename(
+        "volume_change_filter",
+        date_x=date_x,
+        date_y=date_y,
+        date_z=date_z,
+        date_w=date_w,
+        volume_ratio=volume_ratio
+    )
+    
+    # Try to load from cache if enabled
+    if use_cache:
+        cached_df = _load_from_cache(cache_filename, max_age_hours=24)
+        if cached_df is not None:
+            return cached_df
+    
+    if db_path is None:
+        # Default path relative to this file
+        db_path = Path(__file__).parent.parent / "data" / "price" / "price.duckdb"
+    
+    # Connect to DuckDB (read-only mode)
+    con = duckdb.connect(database=str(db_path), read_only=True)
+    
+    try:
+        query = """
+        WITH period_xy AS (
+            SELECT 
+                ticker,
+                AVG(volume) as avg_volume_xy,
+                COUNT(*) as days_xy
+            FROM fact_price_daily
+            WHERE dt >= ? AND dt <= ?
+            GROUP BY ticker
+        ),
+        period_zw AS (
+            SELECT 
+                ticker,
+                AVG(volume) as avg_volume_zw,
+                COUNT(*) as days_zw
+            FROM fact_price_daily
+            WHERE dt >= ? AND dt <= ?
+            GROUP BY ticker
+        )
+        SELECT 
+            xy.ticker,
+            xy.avg_volume_xy,
+            zw.avg_volume_zw,
+            (xy.avg_volume_xy / zw.avg_volume_zw) as actual_ratio,
+            xy.days_xy,
+            zw.days_zw
+        FROM period_xy xy
+        INNER JOIN period_zw zw ON xy.ticker = zw.ticker
+        WHERE zw.avg_volume_zw > 0 
+          AND (xy.avg_volume_xy / zw.avg_volume_zw) >= ?
+        ORDER BY actual_ratio DESC
+        """
+        
+        result_df = con.execute(
+            query,
+            [date_x, date_y, date_z, date_w, volume_ratio]
+        ).fetchdf()
+        
+        if result_df.empty:
+            print(f"No stocks found with volume ratio >= {volume_ratio:.2f}x")
+            print(f"Period XY: {date_x} to {date_y}")
+            print(f"Period ZW: {date_z} to {date_w}")
+        else:
+            print(f"Found {len(result_df)} stocks with volume ratio >= {volume_ratio:.2f}x")
+            print(f"Top performer: {result_df.iloc[0]['ticker']} with {result_df.iloc[0]['actual_ratio']:.2f}x volume increase")
+        
+        # Export to CSV if requested
+        if export_to_csv and not result_df.empty:
+            _save_to_csv(result_df, cache_filename)
+        
+        return result_df
+        
+    finally:
+        con.close()
+    
+
+
 
 
 def print_price_summary(df: pd.DataFrame, ticker: str):
